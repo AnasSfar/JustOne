@@ -1,0 +1,50 @@
+{
+  "facile": [
+    "Pizza",
+    "Burger",
+    "Chat",
+    "Chien",
+    "Soleil",
+    "Lune",
+    "Voiture",
+    "Moto",
+    "Chaise",
+    "Table",
+    "Plage",
+    "Piscine",
+    "Neige",
+    "Pluie"
+  ],
+  "intermediaire": [
+    "Vampire",
+    "Loup-garou",
+    "Fantôme",
+    "Esprit",
+    "Tempête",
+    "Tornade",
+    "Pirate",
+    "Corsaire",
+    "Miroir",
+    "Reflet",
+    "Astronaute",
+    "Cosmonaute",
+    "Labyrinthe",
+    "Dédale"
+  ],
+  "difficile": [
+    "Mensonge",
+    "Vérité",
+    "Espoir",
+    "Désespoir",
+    "Souvenir",
+    "Mémoire",
+    "Infini",
+    "Éternité",
+    "Réalité",
+    "Illusion",
+    "Solitude",
+    "Isolement",
+    "Destin",
+    "Hasard"
+  ]
+}
