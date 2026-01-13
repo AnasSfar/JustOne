@@ -1,5 +1,5 @@
 {
-  "facile": [
+  "Facile": [
     "Téléphone",
     "Antenne",
     "Signal",
@@ -29,7 +29,7 @@
     "Jardin",
     "Vélo"
   ],
-  "intermediaire": [
+  "Moyen": [
     "Réseau",
     "BandePassante",
     "Latence",
@@ -59,7 +59,7 @@
     "Coulisses",
     "Chronique"
   ],
-  "difficile": [
+  "Difficile": [
     "Interférence",
     "Bruit",
     "Codage",
