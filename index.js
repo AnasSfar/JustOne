@@ -55,7 +55,7 @@ orange(); // appeler la fonction orange
 
 function nameColor(n) { // définir une fonction nameColor avec un paramètre n
     console.log(n);
-    retrun n;   // retourner la valeur de n et on sort 
+    return n;   // retourner la valeur de n et on sort 
 }
 
 nameColor("orange"); // appeler la fonction nameColor avec l'argument "orange"
