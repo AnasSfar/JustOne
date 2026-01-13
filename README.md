@@ -15,4 +15,4 @@ Ce choix détermine les mots pouvant être tirés pendant la partie.
 ###  Dictionnaire et tirage des mots
 
 Le dictionnaire du jeu est défini dans le fichier dictionary.json.
-Pour chaque niveau, le fichier contient exactement 14 mots. 5 mots seront tirés par hasard pour chaque tour, le joueur actif va en choisir un au hasard.
+Pour chaque niveau, le fichier contient exactement 14 mots. Pour simplifier l’implémentation, chaque tour utilise un seul mot tiré aléatoirement.
