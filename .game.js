@@ -1,5 +1,12 @@
 console.log("Loaded .game.js from:", __filename);
 
+// Fonction ask
+function ask(question) {
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => resolve(answer.trim()));
+  });
+}
+
 // Tirer N mots au hasard sans répétition
 function drawRandomWords(words, count) {
   const pool = [...words];

@@ -14,15 +14,9 @@ const rl = readline.createInterface({
   output: process.stdout
 });
 
-// Fonction utilitaire pour poser une question
-function ask(question) {
-  return new Promise((resolve) => {
-    rl.question(question, (answer) => resolve(answer.trim()));
-  });
-}
 
 async function main() {
-  // 1) Choix du niveau
+  // Choix du niveau
   const niv = await ask(
     "Bienvenue dans Just One ! Choisissez un mode (F = Facile, M = Intermédiaire, D = Difficile) : "
   );
@@ -41,10 +35,10 @@ async function main() {
 
   console.log("Mode choisi :", levelKey);
 
-  // 2) Tirage des 13 mots
+  // Tirage des 13 mots
   const deck = drawRandomWords(dictionary[levelKey], 13);
 
-  // 3) Saisie des joueurs
+  // Saisie des joueurs
   const players = [];
   console.log("\nEntrez les noms des 5 joueurs :");
 
@@ -57,7 +51,7 @@ async function main() {
     players.push(name);
   }
 
-  // 4) Boucle des 13 manches
+  // Les manches
   let activeIndex = 0;
 
   for (let round = 0; round < deck.length; round++) {
