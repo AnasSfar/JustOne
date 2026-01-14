@@ -1,27 +1,6 @@
-// lancement du jeu
-const readline = require("readline");
-const fs = require("fs");
-const path = require("path");
+console.log("Loaded .game.js from:", __filename);
 
-// Chargement du dictionnaire
-const dictionary = JSON.parse(
-  fs.readFileSync(path.join(__dirname, "dictionnaire.json"), "utf-8")
-);
-
-// Outils console
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
-
-// Pose une question et retourne la réponse (promesse)
-function ask(question) {
-  return new Promise((resolve) => {
-    rl.question(question, (answer) => resolve(answer.trim()));
-  });
-}
-
-// Tire N mots au hasard sans répétition
+// Tirer N mots au hasard sans répétition
 function drawRandomWords(words, count) {
   const pool = [...words];
   const result = [];
@@ -29,58 +8,14 @@ function drawRandomWords(words, count) {
   for (let i = 0; i < count; i++) {
     const index = Math.floor(Math.random() * pool.length);
     result.push(pool[index]);
-    pool.splice(index, 1); // on enlève le mot tiré
+    pool.splice(index, 1);
   }
+
   return result;
 }
 
-async function main() {
-  // Choix du niveau 
-  const niv = await ask(
-    "Bienvenue dans Just One ! Choisissez un mode (F = Facile, M = Moyen, D = Difficile) : "
-  );
-
-  const lettre = niv.toUpperCase();
-
-  if (!["F", "M", "D"].includes(lettre)) {
-    console.log("Mode invalide. Relancez le programme et choisissez F, M ou D.");
-    rl.close();
-    return;
-  }
-
-  // Mapping vers les clés du dictionnaire 
-  const levelKey =
-    lettre === "F" ? "Facile" : lettre === "M" ? "Moyen" : "Difficile";
-
-  console.log("Mode choisi :", levelKey);
-
-  // Tirage des 13 mots 
-  const deck = drawRandomWords(dictionary[levelKey], 13);
-
-  // Saisie des joueurs
-const players = [];
-console.log("\nEntrez les noms des 5 joueurs (nom obligatoire) :");
-
-for (let i = 0; i < 5; i++) {
-    let name = "";
-
-    // Boucle jusqu'à obtenir un nom non vide
-    while (name === "") {
-      name = await ask(`Joueur ${i + 1} : `);
-      if (name === "") {
-        console.log("Nom invalide. Veuillez entrer un nom non vide.");
-      }
-    }
-
-    players.push(name);
-}
-  console.log("\nJoueurs enregistrés :", players);
-
-rl.close();
-}
-
-// Fonction par manche 
-async function playRound(roundIndex, players, activeIndex, secretWord) {
+// Joue une manche (squelette pour l’instant)
+async function playRound(roundIndex, players, activeIndex, secretWord, ask) {
   const activePlayer = players[activeIndex];
 
   console.log("\n==============================");
@@ -88,29 +23,32 @@ async function playRound(roundIndex, players, activeIndex, secretWord) {
   console.log(`Joueur actif : ${activePlayer}`);
   console.log("==============================");
 
-  // Pour l’instant, on affiche le mot pour tester le flow
-  // (plus tard : le joueur actif ne doit pas le voir)
-  console.log(`Mot mystère (debug) : ${secretWord}`);
+  // On récupère la saisie utilisateur
+  const input = await ask(
+    `Quand le joueur ${activePlayer} s'est tourné, Entrée pour continuer (ou PASS si vous voulez passer la manche / STOP si vous voulez arrêter le jeu) : `
+  );
 
-  // ----- TODO: Indices (à faire plus tard) -----
-  // - demander 1 indice aux 4 autres joueurs
-  // - annuler doublons
-  // - afficher indices restants au joueur actif
-  // - demander une seule réponse
-  // - mettre à jour score
-  // - enregistrer dans le fichier log
-  // ---------------------------------------------
+  const cmd = input.trim().toUpperCase();
 
-  // Petite pause pour contrôler le déroulement
-  await ask("Appuyez sur Entrée pour passer à la manche suivante...");
+  if (cmd === "STOP") return "STOP";
+  if (cmd === "PASS") return "PASS";
+
+  console.log(`Mot mystère : ${secretWord}`);
+
+module.exports = { drawRandomWords, playRound };
+
+
+  // ----- TODO -----
+  // - indices
+  // - annulation des doublons
+  // - réponse
+  // - score
+  // - log fichier
+  // -------------------------------------
+  return "OK";
 }
 
-//fonction main
-async function main() {
-    for (let round = 0; round < deck.length; round++) {
-  const secretWord = deck[round];
-  await playRound(round, players, activeIndex, secretWord);
-  activeIndex = (activeIndex + 1) % players.length;
-}
-
-main();
+module.exports = {
+  drawRandomWords,
+  playRound
+};
