@@ -42,6 +42,8 @@ Quand tu es prêt et que les autres joueurs ne regardent pas, appuyez sur Entré
         .trim()
         .toLowerCase();
 
+    if (clue === "stop") return { status: "STOP", clues };
+    
       if (clue === "") {
         console.log("Indice vide interdit.");
         continue;
