@@ -14,7 +14,7 @@ function drawRandomWords(words, count) {
 
 // Demande un indice à chaque joueur (sauf joueur actif)
 // Le mot mystère est affiché à CHAQUE saisie d'indice
-async function collectClues(players, activeIndex, secretWord, ask) {
+async function collectClues(players, activeIndex, secretWord, banned, ask) {
   const clues = [];
 
   for (let i = 0; i < players.length; i++) {
@@ -22,12 +22,11 @@ async function collectClues(players, activeIndex, secretWord, ask) {
 
     console.clear();
 
-    // Tout le "header" + consigne dans un seul ask (meilleur affichage)
     const gate = (await ask(
       `========================================
 C'est au tour de : ${players[i]}. Préparez votre indice.
 Les autres joueurs ne doivent pas regarder.
-----> Mot mystère : ${secretWord} 
+----> Mot mystère : ${secretWord}
 Quand tu es prêt et que les autres joueurs ne regardent pas, appuyez sur Entrée pour continuer puis tapez votre indice (ou tapez STOP pour arrêter) :
 ======================================== `
     ))
@@ -36,16 +35,29 @@ Quand tu es prêt et que les autres joueurs ne regardent pas, appuyez sur Entré
 
     if (gate === "STOP") return { status: "STOP", clues };
 
-    // Saisie de l'indice (1 mot, non vide)
+    // Saisie de l'indice (1 mot, non vide, non interdit)
     let clue = "";
-    while (clue === "" || clue.includes(" ")) {
-      clue = (await ask("Entrez votre indice (1 mot) : ")).trim().toLowerCase();
+    while (true) {
+      clue = (await ask("Entrez votre indice (1 mot) : "))
+        .trim()
+        .toLowerCase();
 
       if (clue === "") {
         console.log("Indice vide interdit.");
-      } else if (clue.includes(" ")) {
-        console.log("Indice invalide : un seul mot (pas d'espaces).");
+        continue;
       }
+
+      if (clue.includes(" ")) {
+        console.log("Indice invalide : un seul mot (pas d'espaces).");
+        continue;
+      }
+
+      if (banned.includes(clue)) {
+        console.log("Indice interdit (trop proche du mot mystère).");
+        continue;
+      }
+
+      break; // ✅ indice valide
     }
 
     clues.push({ player: players[i], clue });
