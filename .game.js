@@ -55,6 +55,7 @@ Quand tu es prêt et que les autres joueurs ne regardent pas, appuyez sur Entré
 
   console.clear();
   return { status: "OK", clues };
+  clues = clues.toLowerCase().trim();
 }
 
 // Joue une manche (squelette)
