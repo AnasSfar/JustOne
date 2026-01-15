@@ -1,5 +1,5 @@
 {
-  "facile": [
+  "Facile": [
     { "word": "téléphone", "banned": ["téléphone", "telephone", "phone", "portable"] },
     { "word": "antenne", "banned": ["antenne", "antenna", "aerial"] },
     { "word": "signal", "banned": ["signal"] },

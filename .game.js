@@ -43,7 +43,7 @@ Quand tu es prêt et que les autres joueurs ne regardent pas, appuyez sur Entré
         .toLowerCase();
 
     if (clue === "stop") return { status: "STOP", clues };
-    
+
       if (clue === "") {
         console.log("Indice vide interdit.");
         continue;
@@ -55,7 +55,7 @@ Quand tu es prêt et que les autres joueurs ne regardent pas, appuyez sur Entré
       }
 
       if (banned.includes(clue)) {
-        console.log("Indice interdit (trop proche du mot mystère).");
+        console.log("Indice interdit (interdit : le mot secret lui même, sa traduction en une autre langue et un mot de la famille proche du mot secret).");
         continue;
       }
 
