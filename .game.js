@@ -59,7 +59,7 @@ Quand tu es prêt et que les autres joueurs ne regardent pas, appuyez sur Entré
         continue;
       }
 
-      break; // ✅ indice valide
+      break;
     }
 
     clues.push({ player: players[i], clue });
@@ -94,8 +94,6 @@ async function playRound(roundIndex, players, activeIndex, card, ask) {
   // Collecte des indices (les 4 autres joueurs)
   const res = await collectClues(players, activeIndex, secretWord, banned, ask);
   if (res.status === "STOP") return { status: "STOP" };
-
-  console.log("Indices collectés :", res.clues);
 
   await ask("Fin de manche (pour l’instant). Entrée pour continuer...");
   return { status: "OK", clues: res.clues };
