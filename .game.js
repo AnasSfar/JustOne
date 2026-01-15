@@ -39,7 +39,7 @@ Quand tu es prêt et que les autres joueurs ne regardent pas, appuyez sur Entré
     // Saisie de l'indice (1 mot, non vide)
     let clue = "";
     while (clue === "" || clue.includes(" ")) {
-      clue = (await ask("Entrez votre indice (1 mot) : ")).trim();
+      clue = (await ask("Entrez votre indice (1 mot) : ")).trim().toLowerCase();
 
       if (clue === "") {
         console.log("Indice vide interdit.");
@@ -54,7 +54,6 @@ Quand tu es prêt et que les autres joueurs ne regardent pas, appuyez sur Entré
   }
 
   console.clear();
-  clues = clues.toLowerCase().trim();
   return { status: "OK", clues };
 }
 
