@@ -70,8 +70,10 @@ Quand tu es prêt et que les autres joueurs ne regardent pas, appuyez sur Entré
 }
 
 // Joue une manche (squelette)
-async function playRound(roundIndex, players, activeIndex, secretWord, ask) {
+async function playRound(roundIndex, players, activeIndex, card, ask) {
   const activePlayer = players[activeIndex];
+  const secretWord = card.word;
+  const banned = card.banned;
 
   console.log("\n==============================");
   console.log(`Manche ${roundIndex + 1} / 13`);
@@ -88,10 +90,9 @@ async function playRound(roundIndex, players, activeIndex, secretWord, ask) {
   if (cmd === "PASS") return { status: "PASS" };
 
   // Collecte des indices (les 4 autres joueurs)
-  const res = await collectClues(players, activeIndex, secretWord, ask);
+  const res = await collectClues(players, activeIndex, secretWord, banned, ask);
   if (res.status === "STOP") return { status: "STOP" };
 
-  // DEBUG temporaire (à enlever plus tard)
   console.log("Indices collectés :", res.clues);
 
   await ask("Fin de manche (pour l’instant). Entrée pour continuer...");
