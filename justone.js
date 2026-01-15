@@ -8,17 +8,23 @@ const dictionary = JSON.parse(
   fs.readFileSync(path.join(__dirname, ".dictionnaire.json"), "utf-8")
 );
 
+// Fonction ask
+function ask(question) {
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => resolve(answer.trim()));
+  });
+}
+
 // Interface readline
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout
 });
 
-
 async function main() {
   // Choix du niveau
   const niv = await ask(
-    "Bienvenue dans Just One ! Choisissez un mode (F = Facile, M = Intermédiaire, D = Difficile) : "
+    "Bienvenue dans Just One ! \n Choisissez un mode (F = Facile, M = Intermédiaire, D = Difficile) : "
   );
 
   const lettre = niv.toUpperCase();
