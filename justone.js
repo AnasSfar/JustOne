@@ -2,6 +2,9 @@ const readline = require("readline");
 const fs = require("fs");
 const path = require("path");
 const { drawRandomWords, playRound } = require("./.game.js");
+const score = require("./score.js");
+score.resetScore();
+
 
 // Charger le dictionnaire
 const dictionary = JSON.parse(
@@ -74,6 +77,7 @@ async function main() {
 
   // fin de partie
   console.log("\nPartie terminée.");
+  console.log(`Score final : ${score.getScore()} / ${deck.length}`);
   rl.close();
 }
 

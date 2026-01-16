@@ -1,3 +1,5 @@
+const score = require("./score");
+
 // Tire N mots au hasard sans répétition
 function drawRandomWords(words, count) {
   const pool = [...words];
@@ -110,6 +112,7 @@ async function playRound(roundIndex, players, activeIndex, card, ask) {
 
   if (guess === secretWord.toLowerCase()) {
     console.log("Bonne réponse !");
+    score.increment();
   } else {
     console.log(`Mauvaise réponse. Le mot était : ${secretWord}`);
   }
