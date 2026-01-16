@@ -98,6 +98,7 @@ async function playRound(roundIndex, players, activeIndex, card, ask) {
   return { status: "OK", clues: res.clues };
 }
   // la réponse du joueur actif
+  async function answer(activePlayer, secretWord, clues, ask) {
     console.clear();
     console.log(`${activePlayer}, c'est à votre tour de deviner le mot !`);
     console.log("Voici les indices reçus :");
@@ -105,7 +106,7 @@ async function playRound(roundIndex, players, activeIndex, card, ask) {
       console.log(`- Indice ${index + 1} de ${player} : ${clue}`);
     });
 
-    const answer = (await ask("Entrez votre réponse (ou STOP pour arrêter) : "))
+    const answer = await ask("Entrez votre réponse (ou STOP pour arrêter) : ")
       .trim()
       .toUpperCase();
     if (answer === "STOP") return "STOP";
@@ -117,7 +118,7 @@ async function playRound(roundIndex, players, activeIndex, card, ask) {
     }
 
     await ask("Fin de manche. Appuyez sur Entrée pour passez à la manche suivante...");
-
+  }
 module.exports = {
   drawRandomWords,
   playRound
