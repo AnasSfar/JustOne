@@ -71,8 +71,6 @@ async function main() {
     // PASS ou OK -> on passe au joueur suivant et on continue
     activeIndex = (activeIndex + 1) % players.length;
   }
-    //réponse du joueur actif
-    const answer = await ask("Entrez votre réponse (ou STOP pour arrêter) : ");
 
   // fin de partie
   console.log("\nPartie terminée.");
