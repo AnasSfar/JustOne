@@ -105,10 +105,10 @@ async function playRound(roundIndex, players, activeIndex, card, ask) {
 
     const answer = await ask("Entrez votre réponse (ou STOP pour arrêter) : ")
       .trim()
-      .toUpperCase();
+      .toLowerCase();
     if (answer === "STOP") return "STOP";
 
-    if (answer === secretWord.toUpperCase()) {
+    if (answer === secretWord.toLowerCase()) {
       console.log("Bonne réponse !");
     } else {
       console.log(`Mauvaise réponse. Le mot était : ${secretWord}`);
