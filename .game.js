@@ -71,7 +71,7 @@ Quand vous êtes prêt(e)s et que les autres joueurs ne regardent pas, appuyez s
   return { status: "OK", clues };
 }
 
-// Joue une manche (squelette)
+// Joue une manche
 async function playRound(roundIndex, players, activeIndex, card, ask) {
   const activePlayer = players[activeIndex];
   const secretWord = card.word;
@@ -97,6 +97,26 @@ async function playRound(roundIndex, players, activeIndex, card, ask) {
   await ask("Fin de manche (pour l’instant). Entrée pour continuer...");
   return { status: "OK", clues: res.clues };
 }
+  // la réponse du joueur actif
+    console.clear();
+    console.log(`${activePlayer}, c'est à votre tour de deviner le mot !`);
+    console.log("Voici les indices reçus :");
+    res.clues.forEach(({ player, clue }, index) => {
+      console.log(`- Indice ${index + 1} de ${player} : ${clue}`);
+    });
+
+    const answer = (await ask("Entrez votre réponse (ou STOP pour arrêter) : "))
+      .trim()
+      .toUpperCase();
+    if (answer === "STOP") return "STOP";
+
+    if (answer === secretWord.toUpperCase()) {
+      console.log("Bonne réponse !");
+    } else {
+      console.log(`Mauvaise réponse. Le mot était : ${secretWord}`);
+    }
+
+    await ask("Fin de manche. Appuyez sur Entrée pour passez à la manche suivante...");
 
 module.exports = {
   drawRandomWords,
