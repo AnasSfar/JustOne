@@ -2,7 +2,7 @@ const readline = require("readline");
 const fs = require("fs");
 const path = require("path");
 const { drawRandomWords, playRound } = require("./.game.js");
-const score = require("./score.js");
+const score = require("./.score.js");
 score.resetScore();
 
 
