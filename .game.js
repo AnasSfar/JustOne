@@ -1,4 +1,4 @@
-const score = require("./score.js");
+const score = require("./score");
 
 // Tire N mots au hasard sans répétition
 function drawRandomWords(words, count) {
