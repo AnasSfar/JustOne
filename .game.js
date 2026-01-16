@@ -27,7 +27,7 @@ async function collectClues(players, activeIndex, secretWord, banned, ask) {
 C'est au tour de : ${players[i]}. Préparez votre indice.
 Les autres joueurs ne doivent pas regarder.
 ----> Mot mystère : ${secretWord}
-Quand tu es prêt et que les autres joueurs ne regardent pas, appuyez sur Entrée pour continuer puis tapez votre indice (ou tapez STOP pour arrêter) :
+Quand vous êtes prêt(e)s et que les autres joueurs ne regardent pas, appuyez sur Entrée pour continuer puis tapez votre indice (ou tapez STOP pour arrêter) :
 ======================================== `
     ))
       .trim()
@@ -83,13 +83,12 @@ async function playRound(roundIndex, players, activeIndex, card, ask) {
   console.log("==============================");
 
   const cmd = (await ask(
-    `Quand le joueur ${activePlayer} s'est tourné, Entrée pour continuer (ou PASS / STOP) : `
+    `Quand ${activePlayer} s'est tourné(e), appuyez sur Entrée pour continuer (ou STOP pour arrêter le jeu) : `
   ))
     .trim()
     .toUpperCase();
 
   if (cmd === "STOP") return { status: "STOP" };
-  if (cmd === "PASS") return { status: "PASS" };
 
   // Collecte des indices (les 4 autres joueurs)
   const res = await collectClues(players, activeIndex, secretWord, banned, ask);
