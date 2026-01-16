@@ -24,7 +24,7 @@ const rl = readline.createInterface({
 async function main() {
   // Choix du niveau
   const niv = await ask(
-    "Bienvenue dans Just One ! \n Choisissez un mode (F = Facile, M = Intermédiaire, D = Difficile) : "
+    "Bienvenue dans Just One ! \nChoisissez un mode (F = Facile, M = Intermédiaire, D = Difficile) : "
   );
 
   const lettre = niv.toUpperCase();
@@ -39,7 +39,7 @@ async function main() {
     lettre === "M" ? "Moyen" :
     "Difficile";
 
-  console.log("Mode choisi :", levelKey);
+  console.log("Vous avez choisi le mode", levelKey);
 
   // Tirage des 13 mots
   const deck = drawRandomWords(dictionary[levelKey], 13);
@@ -64,7 +64,7 @@ async function main() {
     const status = await playRound(round, players, activeIndex, deck[round], ask);
 
     if (status === "STOP") {
-      console.log("Arrêt demandé. Fin de partie.");
+      console.log("Arrêt demandé. Fin de la partie.");
       break;
     }
 
