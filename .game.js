@@ -93,9 +93,6 @@ async function playRound(roundIndex, players, activeIndex, card, ask) {
   // Collecte des indices (les 4 autres joueurs)
   const res = await collectClues(players, activeIndex, secretWord, banned, ask);
   if (res.status === "STOP") return { status: "STOP" };
-
-  await ask("Fin de manche (pour l’instant). Entrée pour continuer...");
-  return { status: "OK", clues: res.clues };
 }
   // la réponse du joueur actif
   async function answer(activePlayer, secretWord, clues, ask) {
