@@ -1,8 +1,7 @@
 const readline = require("readline");
 
-/**
- * Tire N mots au hasard sans répétition
- */
+// Tire N mots au hasard sans répétition
+
 function drawRandomWords(words, count) {
   const pool = [...words];
   const result = [];
@@ -16,79 +15,39 @@ function drawRandomWords(words, count) {
 }
 
 function formatMMSS(ms) {
-  const s = Math.max(0, Math.ceil(ms / 1000));
-  const mm = String(Math.floor(s / 60)).padStart(2, "0");
-  const ss = String(s % 60).padStart(2, "0");
+  const totalSec = Math.max(0, Math.ceil(ms / 1000));
+  const mm = String(Math.floor(totalSec / 60)).padStart(2, "0");
+  const ss = String(totalSec % 60).padStart(2, "0");
   return `${mm}:${ss}`;
 }
 
-/**
- * Pose une question avec un timer qui:
- * - affiche en continu "Temps restant: mm:ss"
- * - annonce "Il reste 4/3/2/1 minute(s)" quand on franchit ces seuils
- * - retourne string saisie, ou null si timeout
- *
- * NOTE: nécessite accès direct à rl (readline.Interface)
- */
+// askTimed (sans affichage en continu)
+
 function askTimed(rl, question, ms, opts = {}) {
-  const { announceMinutes = true, showCountdown = true } = opts;
+  const {
+    announceMinutes = true,
+    showOnceAtPrompt = true,
+    minuteThresholds = [4, 3, 2, 1]
+  } = opts;
 
   return new Promise((resolve) => {
-    const start = Date.now();
     let done = false;
 
-    // seuils minutes à annoncer
-    const targets = new Set([4, 3, 2, 1]);
-    const announced = new Set();
+    // Affichage du prompt (une fois)
+    if (showOnceAtPrompt) {
+      process.stdout.write(`${question}\nTemps disponible: ${formatMMSS(ms)}\n> `);
+    } else {
+      process.stdout.write(question);
+    }
 
-    // Prépare prompt
-    rl.setPrompt(question);
-    rl.prompt(true);
+    const minuteTimers = [];
 
     const cleanup = () => {
       if (done) return;
       done = true;
       rl.removeListener("line", onLine);
-      clearInterval(ticker);
       clearTimeout(killer);
-      // Nettoie la ligne de countdown
-      if (showCountdown) {
-        readline.clearLine(process.stdout, 0);
-        readline.cursorTo(process.stdout, 0);
-      }
-    };
-
-    const redrawCountdown = (remaining) => {
-      if (!showCountdown) return;
-
-      // Sauvegarde ce que l'utilisateur a déjà tapé
-      const currentInput = rl.line ?? "";
-
-      // Efface la ligne courante et écrit le countdown
-      readline.clearLine(process.stdout, 0);
-      readline.cursorTo(process.stdout, 0);
-      process.stdout.write(`Temps restant: ${formatMMSS(remaining)}  `);
-
-      // Redessine le prompt + l'input en cours
-      // (réaffiche correctement ce que la personne tape)
-      process.stdout.write("\n");
-      rl.prompt(true);
-      rl.write(currentInput);
-    };
-
-    const maybeAnnounce = (remaining) => {
-      if (!announceMinutes) return;
-
-      // minutes restantes arrondies au supérieur (ex: 4:01 => 5, 3:59 => 4)
-      const minLeft = Math.ceil(remaining / 60000);
-
-      if (targets.has(minLeft) && !announced.has(minLeft)) {
-        announced.add(minLeft);
-        // saute une ligne proprement pour ne pas casser le prompt
-        process.stdout.write("\n");
-        console.log(`Il reste ${minLeft} minute${minLeft > 1 ? "s" : ""}.`);
-        rl.prompt(true);
-      }
+      minuteTimers.forEach(clearTimeout);
     };
 
     const onLine = (line) => {
@@ -98,19 +57,26 @@ function askTimed(rl, question, ms, opts = {}) {
 
     rl.once("line", onLine);
 
-    // ticker visuel + annonces
-    const ticker = setInterval(() => {
-      const elapsed = Date.now() - start;
-      const remaining = ms - elapsed;
+    // Annonces minutes restantes
+    if (announceMinutes) {
+      for (const m of minuteThresholds) {
+        const triggerAt = ms - m * 60000;
+        if (triggerAt > 0) {
+          minuteTimers.push(
+            setTimeout(() => {
+              if (done) return;
+              process.stdout.write("\n");
+              console.log(`Il reste ${m} minute${m > 1 ? "s" : ""}.`);
+              process.stdout.write("> ");
+            }, triggerAt)
+          );
+        }
+      }
+    }
 
-      if (remaining <= 0) return; // le killer gère la fin proprement
-      maybeAnnounce(remaining);
-      redrawCountdown(remaining);
-    }, 250);
-
-    // timeout “dur”
+    // Timeout final
     const killer = setTimeout(() => {
-      // saute une ligne pour éviter de coller au prompt
+      if (done) return;
       process.stdout.write("\n");
       console.log("⏱ Temps écoulé !");
       cleanup();
@@ -119,10 +85,8 @@ function askTimed(rl, question, ms, opts = {}) {
   });
 }
 
-/**
- * Collecte des indices (Express)
- * Règle: si timeout sur un indice -> indice perdu (on continue)
- */
+// Collecte des indices (Express)
+
 async function collectCluesExpress(rl, players, activeIndex, secretWord, banned, roundMs) {
   const clues = [];
 
@@ -130,7 +94,6 @@ async function collectCluesExpress(rl, players, activeIndex, secretWord, banned,
     if (i === activeIndex) continue;
 
     console.clear();
-
     const gate = await askTimed(
       rl,
       `========================================
@@ -140,23 +103,21 @@ Les autres joueurs ne doivent pas regarder.
 Quand vous êtes prêt(e)s, appuyez sur Entrée (ou tapez STOP) :
 ======================================== `,
       roundMs,
-      { announceMinutes: true, showCountdown: true }
+      { announceMinutes: true, showOnceAtPrompt: false }
     );
 
     if (gate === null) {
-      // timeout sur "gate" => on considère que le joueur perd son tour d'indice
+      // timeout sur gate => joueur perd son tour d'indice
       continue;
     }
     if (gate.trim().toUpperCase() === "STOP") return { status: "STOP", clues };
 
-    // Saisie de l'indice (1 mot, non vide, non interdit) avec timer
+    // Saisie de l'indice (AFFICHE le temps UNE SEULE FOIS ici)
     while (true) {
-      const raw = await askTimed(
-        rl,
-        "Entrez votre indice (1 mot) : ",
-        roundMs,
-        { announceMinutes: true, showCountdown: true }
-      );
+      const raw = await askTimed(rl, "Entrez votre indice (1 mot) :", roundMs, {
+        announceMinutes: true,
+        showOnceAtPrompt: true
+      });
 
       if (raw === null) {
         // timeout => indice perdu
@@ -170,10 +131,12 @@ Quand vous êtes prêt(e)s, appuyez sur Entrée (ou tapez STOP) :
         console.log("Indice vide interdit.");
         continue;
       }
+
       if (clue.includes(" ")) {
         console.log("Indice invalide : un seul mot (pas d'espaces).");
         continue;
       }
+
       if (banned.includes(clue)) {
         console.log(
           "Indice interdit (interdit : le mot secret lui-même, sa traduction, ou un mot très proche)."
@@ -185,11 +148,12 @@ Quand vous êtes prêt(e)s, appuyez sur Entrée (ou tapez STOP) :
       break;
     }
 
+    // Confirmation (pas besoin d'afficher le temps)
     await askTimed(
       rl,
       "Indice enregistré. Appuyez sur Entrée et passez le clavier au joueur suivant...",
       roundMs,
-      { announceMinutes: false, showCountdown: false }
+      { announceMinutes: false, showOnceAtPrompt: false }
     );
   }
 
@@ -197,10 +161,9 @@ Quand vous êtes prêt(e)s, appuyez sur Entrée (ou tapez STOP) :
   return { status: "OK", clues };
 }
 
-/**
- * Joue une manche Express
- * Règle: si timeout sur la réponse => faux
- */
+// Joue une manche Express
+// Règle: si timeout sur la réponse => faux
+
 async function playRoundExpress(roundIndex, players, activeIndex, card, rl, roundMs) {
   const activePlayer = players[activeIndex];
   const secretWord = card.word;
@@ -216,11 +179,10 @@ async function playRoundExpress(roundIndex, players, activeIndex, card, rl, roun
     rl,
     `Quand ${activePlayer} s'est tourné(e), appuyez sur Entrée (ou STOP) : `,
     roundMs,
-    { announceMinutes: true, showCountdown: true }
+    { announceMinutes: true, showOnceAtPrompt: false }
   );
 
   if (cmd === null) {
-    // timeout => on passe la manche (ou tu peux décider STOP)
     console.log("Manche passée (timeout).");
     return { status: "OK", correct: false };
   }
@@ -237,18 +199,17 @@ async function playRoundExpress(roundIndex, players, activeIndex, card, rl, roun
     console.log(`- Indice ${index + 1} de ${player} : ${clue}`);
   });
 
-  const rawGuess = await askTimed(
-    rl,
-    "Entrez votre réponse (ou STOP) : ",
-    roundMs,
-    { announceMinutes: true, showCountdown: true }
-  );
+  // affiche le temps UNE SEULE FOIS au moment de demander la réponse
+  const rawGuess = await askTimed(rl, "Entrez votre réponse (ou STOP) :", roundMs, {
+    announceMinutes: true,
+    showOnceAtPrompt: true
+  });
 
   if (rawGuess === null) {
     console.log(`Temps écoulé. Mauvaise réponse. Le mot était : ${secretWord}`);
     await askTimed(rl, "Fin de manche. Entrée pour continuer...", roundMs, {
       announceMinutes: false,
-      showCountdown: false
+      showOnceAtPrompt: false
     });
     return { status: "OK", correct: false };
   }
@@ -262,7 +223,7 @@ async function playRoundExpress(roundIndex, players, activeIndex, card, rl, roun
 
   await askTimed(rl, "Fin de manche. Entrée pour continuer...", roundMs, {
     announceMinutes: false,
-    showCountdown: false
+    showOnceAtPrompt: false
   });
 
   return { status: "OK", correct };
