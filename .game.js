@@ -88,34 +88,36 @@ async function playRound(roundIndex, players, activeIndex, card, ask) {
     .trim()
     .toUpperCase();
 
-  if (cmd === "STOP") return { status: "STOP" };
+  if (cmd === "STOP") return "STOP";
 
-  // Collecte des indices (les 4 autres joueurs)
+  // Collecte des indices
   const res = await collectClues(players, activeIndex, secretWord, banned, ask);
-  if (res.status === "STOP") return { status: "STOP" };
-}
-  // la réponse du joueur actif
-  async function answer(activePlayer, secretWord, clues, ask) {
-    console.clear();
-    console.log(`${activePlayer}, c'est à votre tour de deviner le mot !`);
-    console.log("Voici les indices reçus :");
-    res.clues.forEach(({ player, clue }, index) => {
-      console.log(`- Indice ${index + 1} de ${player} : ${clue}`);
-    });
+  if (res.status === "STOP") return "STOP";
 
-    const answer = await ask("Entrez votre réponse (ou STOP pour arrêter) : ")
-      .trim()
-      .toLowerCase();
-    if (answer === "STOP") return "STOP";
+  // Réponse du joueur actif
+  console.clear();
+  console.log(`${activePlayer}, c'est à votre tour de deviner le mot !`);
+  console.log("Voici les indices reçus :");
+  res.clues.forEach(({ player, clue }, index) => {
+    console.log(`- Indice ${index + 1} de ${player} : ${clue}`);
+  });
 
-    if (answer === secretWord.toLowerCase()) {
-      console.log("Bonne réponse !");
-    } else {
-      console.log(`Mauvaise réponse. Le mot était : ${secretWord}`);
-    }
+  const guess = (await ask("Entrez votre réponse (ou STOP pour arrêter) : "))
+    .trim()
+    .toLowerCase();
 
-    await ask("Fin de manche. Appuyez sur Entrée pour passez à la manche suivante...");
+  if (guess === "stop") return "STOP";
+
+  if (guess === secretWord.toLowerCase()) {
+    console.log("Bonne réponse !");
+  } else {
+    console.log(`Mauvaise réponse. Le mot était : ${secretWord}`);
   }
+
+  await ask("Fin de manche. Appuyez sur Entrée pour passez à la manche suivante...");
+  return "OK";
+}
+
 module.exports = {
   drawRandomWords,
   playRound
