@@ -114,7 +114,7 @@ Quand vous êtes prêt(e)s, appuyez sur Entrée (ou tapez STOP) :
 
     // Saisie de l'indice (AFFICHE le temps UNE SEULE FOIS ici)
     while (true) {
-      const raw = await askTimed(rl, "Entrez votre indice (1 mot) :", roundMs, {
+      const raw = await askTimed(rl, "Entrez votre indice (1 mot)", roundMs, {
         announceMinutes: true,
         showOnceAtPrompt: true
       });
