@@ -52,7 +52,7 @@ async function main() {
   let roundMs = null;
   while (roundMs === null || roundMs < 5_000) {
     const d = await askPlain(
-      "Durée d'une manche (ex: 90, 90s, 2m, 2:30) (min 5s) : "
+      "Durée d'une manche (formats possibles: 90, 90s, 2m, 2:30) : "
     );
     roundMs = parseDurationToMs(d);
     if (roundMs === null) console.log("Format invalide.");
