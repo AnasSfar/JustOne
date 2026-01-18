@@ -1,3 +1,8 @@
+// .gameexpress.js
+// Express avec VRAI temps total de manche (le temps diminue entre joueurs)
+// + doublons (duplicateCount renvoyé au main pour -5s)
+// OPTION 1 : timeout => manche ratée / on continue la partie
+
 // Tire N mots au hasard sans répétition
 function drawRandomWords(words, count) {
   const pool = [...words];
@@ -18,7 +23,12 @@ function formatMMSS(ms) {
   return `${mm}:${ss}`;
 }
 
-// Supprime les doublons (insensible à la casse) et renvoie kept/removed
+// Temps restant sur la manche (chrono partagé)
+function remainingMs(startMs, roundMs) {
+  return roundMs - (Date.now() - startMs);
+}
+
+// Doublons (insensible à la casse)
 function removeDuplicateClues(clues) {
   const counts = {};
   for (const { clue } of clues) {
@@ -49,7 +59,7 @@ function askTimed(rl, question, ms, opts = {}) {
     let done = false;
 
     if (showOnceAtPrompt) {
-      process.stdout.write(`${question}\nTemps disponible: ${formatMMSS(ms)}\n> `);
+      process.stdout.write(`${question}\nTemps restant: ${formatMMSS(ms)}\n> `);
     } else {
       process.stdout.write(question);
     }
@@ -71,6 +81,7 @@ function askTimed(rl, question, ms, opts = {}) {
 
     rl.once("line", onLine);
 
+    // Annonces minutes restantes (sur le temps RESTANT donné à cet appel)
     if (announceMinutes) {
       for (const m of minuteThresholds) {
         const triggerAt = ms - m * 60000;
@@ -97,19 +108,29 @@ function askTimed(rl, question, ms, opts = {}) {
   });
 }
 
-// Pause simple (sans timer) pour éviter les comportements bizarres
-function pause(rl, message) {
-  return new Promise((resolve) => rl.question(message, () => resolve()));
+// Pause qui CONSOMME le temps de manche (comme tu as demandé)
+// Si timeout => on continue automatiquement
+async function pauseTimed(rl, message, startMs, roundMs) {
+  const rem = remainingMs(startMs, roundMs);
+  if (rem <= 0) return null;
+
+  return await askTimed(rl, message, rem, {
+    announceMinutes: false,
+    showOnceAtPrompt: false
+  });
 }
 
-// Collecte des indices (Express)
-async function collectCluesExpress(rl, players, activeIndex, secretWord, banned, roundMs) {
+// Collecte des indices (Express) — temps total partagé
+async function collectCluesExpress(rl, players, activeIndex, secretWord, banned, roundMs, startMs) {
   const clues = [];
 
   for (let i = 0; i < players.length; i++) {
     if (i === activeIndex) continue;
 
     console.clear();
+
+    let rem = remainingMs(startMs, roundMs);
+    if (rem <= 0) return { status: "OK", clues, timedOut: true };
 
     const gate = await askTimed(
       rl,
@@ -119,18 +140,21 @@ Les autres joueurs ne doivent pas regarder.
 ----> Mot mystère : ${secretWord}
 Quand vous êtes prêt(e)s, appuyez sur Entrée (ou tapez STOP) :
 ======================================== `,
-      roundMs,
+      rem,
       { announceMinutes: true, showOnceAtPrompt: false }
     );
 
     if (gate === null) {
-      // timeout sur gate => joueur perd son tour d'indice
+      // timeout => joueur perd son tour d'indice
       continue;
     }
-    if (gate.trim().toUpperCase() === "STOP") return { status: "STOP", clues };
+    if (gate.trim().toUpperCase() === "STOP") return { status: "STOP", clues, timedOut: false };
 
     while (true) {
-      const raw = await askTimed(rl, "Entrez votre indice (1 mot) :", roundMs, {
+      rem = remainingMs(startMs, roundMs);
+      if (rem <= 0) return { status: "OK", clues, timedOut: true };
+
+      const raw = await askTimed(rl, "Entrez votre indice (1 mot) :", rem, {
         announceMinutes: true,
         showOnceAtPrompt: true
       });
@@ -141,12 +165,7 @@ Quand vous êtes prêt(e)s, appuyez sur Entrée (ou tapez STOP) :
       }
 
       const clue = raw.trim().toLowerCase();
-      if (clue === "stop") return { status: "STOP", clues };
-
-      if (clue === secretWord.toLowerCase()) {
-        console.log("Indice interdit : le mot mystère lui-même.");
-        continue;
-      }
+      if (clue === "stop") return { status: "STOP", clues, timedOut: false };
 
       if (clue === "") {
         console.log("Indice vide interdit.");
@@ -155,6 +174,11 @@ Quand vous êtes prêt(e)s, appuyez sur Entrée (ou tapez STOP) :
 
       if (clue.includes(" ")) {
         console.log("Indice invalide : un seul mot (pas d'espaces).");
+        continue;
+      }
+
+      if (clue === secretWord.toLowerCase()) {
+        console.log("Indice interdit : le mot mystère lui-même.");
         continue;
       }
 
@@ -167,48 +191,77 @@ Quand vous êtes prêt(e)s, appuyez sur Entrée (ou tapez STOP) :
       break;
     }
 
-    // Confirmation sans timer
-    await pause(rl, "Indice enregistré. Entrée et passez le clavier au joueur suivant...");
+    // Confirmation (consomme le temps total)
+    await pauseTimed(
+      rl,
+      "Indice enregistré. Appuyez sur Entrée et passez le clavier au joueur suivant...",
+      startMs,
+      roundMs
+    );
   }
 
   console.clear();
-  return { status: "OK", clues };
+  return { status: "OK", clues, timedOut: false };
 }
 
-// Joue une manche Express (OPTION 1 : timeout => manche ratée, partie continue)
+// Joue une manche Express (temps total partagé)
 async function playRoundExpress(roundIndex, players, activeIndex, card, rl, roundMs) {
   const activePlayer = players[activeIndex];
 
   const secretWord = typeof card === "string" ? card : card.word;
-  const banned =
+  const bannedRaw =
     typeof card === "string"
-      ? [secretWord.toLowerCase()]
-      : (card.banned ?? [secretWord.toLowerCase()]);
+      ? []
+      : Array.isArray(card.banned)
+        ? card.banned
+        : [];
+
+  // Normalisation banned en lowercase + ajout du mot secret (sécurité)
+  const banned = Array.from(
+    new Set([secretWord.toLowerCase(), ...bannedRaw.map((x) => String(x).toLowerCase())])
+  );
 
   console.log("\n==============================");
   console.log(`Manche ${roundIndex + 1} / 13`);
   console.log(`----> Joueur actif : ${activePlayer}`);
-  console.log(`Durée (Express) : ${formatMMSS(roundMs)}`);
+  console.log(`Durée (Express - total manche) : ${formatMMSS(roundMs)}`);
   console.log("==============================");
+
+  const startMs = Date.now();
+
+  // Cmd (consomme le temps total)
+  let rem = remainingMs(startMs, roundMs);
+  if (rem <= 0) {
+    console.log("⏱ Temps total écoulé avant le début réel de la manche.");
+    return { status: "OK", correct: false, duplicateCount: 0 };
+  }
 
   const cmd = await askTimed(
     rl,
     `Quand ${activePlayer} s'est tourné(e), appuyez sur Entrée (ou STOP) : `,
-    roundMs,
+    rem,
     { announceMinutes: true, showOnceAtPrompt: false }
   );
 
   if (cmd === null) {
-    console.log("Manche passée (timeout).");
+    console.log("⏱ Temps total écoulé. Manche ratée.");
     return { status: "OK", correct: false, duplicateCount: 0 };
   }
   if (cmd.trim().toUpperCase() === "STOP") {
     return { status: "STOP", correct: false, duplicateCount: 0 };
   }
 
-  const res = await collectCluesExpress(rl, players, activeIndex, secretWord, banned, roundMs);
+  // Indices (consomme le temps total)
+  const res = await collectCluesExpress(rl, players, activeIndex, secretWord, banned, roundMs, startMs);
   if (res.status === "STOP") return { status: "STOP", correct: false, duplicateCount: 0 };
 
+  if (res.timedOut) {
+    console.log("⏱ Temps total de la manche écoulé pendant les indices. Manche ratée.");
+    await pauseTimed(rl, "Fin de manche. Entrée pour continuer...", startMs, roundMs);
+    return { status: "OK", correct: false, duplicateCount: 0 };
+  }
+
+  // Doublons
   const totalClues = res.clues.length;
   const { kept, removed } = removeDuplicateClues(res.clues);
   const eliminatedCount = totalClues - kept.length;
@@ -230,14 +283,22 @@ async function playRoundExpress(roundIndex, players, activeIndex, card, rl, roun
     });
   }
 
-  const rawGuess = await askTimed(rl, "Entrez votre réponse (ou STOP) :", roundMs, {
+  // Réponse (consomme le temps total)
+  rem = remainingMs(startMs, roundMs);
+  if (rem <= 0) {
+    console.log(`⏱ Temps total écoulé. Mauvaise réponse. Le mot était : ${secretWord}`);
+    await pauseTimed(rl, "Fin de manche. Entrée pour continuer...", startMs, roundMs);
+    return { status: "OK", correct: false, duplicateCount: eliminatedCount };
+  }
+
+  const rawGuess = await askTimed(rl, "Entrez votre réponse (ou STOP) :", rem, {
     announceMinutes: true,
     showOnceAtPrompt: true
   });
 
   if (rawGuess === null) {
-    console.log(`⏱ Temps écoulé. Mauvaise réponse. Le mot était : ${secretWord}`);
-    await pause(rl, "Fin de manche. Entrée pour continuer...");
+    console.log(`⏱ Temps total écoulé. Mauvaise réponse. Le mot était : ${secretWord}`);
+    await pauseTimed(rl, "Fin de manche. Entrée pour continuer...", startMs, roundMs);
     return { status: "OK", correct: false, duplicateCount: eliminatedCount };
   }
 
@@ -248,7 +309,8 @@ async function playRoundExpress(roundIndex, players, activeIndex, card, rl, roun
   if (correct) console.log("Bonne réponse !");
   else console.log(`Mauvaise réponse. Le mot était : ${secretWord}`);
 
-  await pause(rl, "Fin de manche. Entrée pour continuer...");
+  // Fin de manche (consomme le temps total)
+  await pauseTimed(rl, "Fin de manche. Entrée pour continuer...", startMs, roundMs);
 
   return { status: "OK", correct, duplicateCount: eliminatedCount };
 }

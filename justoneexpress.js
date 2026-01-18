@@ -1,316 +1,117 @@
-// Tire N mots au hasard sans répétition
-function drawRandomWords(words, count) {
-  const pool = [...words];
-  const result = [];
+const readline = require("readline");
+const fs = require("fs");
+const path = require("path");
+const { drawRandomWords, playRoundExpress } = require("./.gameexpress.js");
 
-  for (let i = 0; i < count; i++) {
-    const index = Math.floor(Math.random() * pool.length);
-    result.push(pool[index]);
-    pool.splice(index, 1);
+const dictionary = JSON.parse(
+  fs.readFileSync(path.join(__dirname, ".dictionnaire.json"), "utf-8")
+);
+
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
+
+// Ask simple (sans timer) pour config + noms
+function askPlain(question) {
+  return new Promise((resolve) => rl.question(question, (ans) => resolve(ans.trim())));
+}
+
+// Accepte: "90" (secondes), "90s", "2m", "2:30"
+function parseDurationToMs(input) {
+  const s = input.trim().toLowerCase();
+
+  if (/^\d+:\d{1,2}$/.test(s)) {
+    const [m, sec] = s.split(":").map(Number);
+    return (m * 60 + sec) * 1000;
   }
-  return result;
+  if (/^\d+m$/.test(s)) return Number(s.slice(0, -1)) * 60_000;
+  if (/^\d+s$/.test(s)) return Number(s.slice(0, -1)) * 1000;
+  if (/^\d+$/.test(s)) return Number(s) * 1000;
+
+  return null;
 }
 
-function formatMMSS(ms) {
-  const totalSec = Math.max(0, Math.ceil(ms / 1000));
-  const mm = String(Math.floor(totalSec / 60)).padStart(2, "0");
-  const ss = String(totalSec % 60).padStart(2, "0");
-  return `${mm}:${ss}`;
+function formatSeconds(ms) {
+  return Math.ceil(ms / 1000);
 }
 
-// Temps restant sur la manche (chrono partagé)
-function remainingMs(startMs, roundMs) {
-  return roundMs - (Date.now() - startMs);
-}
+async function main() {
+  // Choix du niveau (4 modes)
+  const niv = await askPlain(
+    "Bienvenue dans Just One Express !\nChoisissez un mode (F = Facile, M = Moyen, D = Difficile, T = TC) : "
+  );
 
-// Doublons (insensible à la casse)
-function removeDuplicateClues(clues) {
-  const counts = {};
-  for (const { clue } of clues) {
-    const key = clue.toLowerCase();
-    counts[key] = (counts[key] || 0) + 1;
+  const lettre = niv.trim().toUpperCase();
+  const MODE_MAP = { F: "Facile", M: "Moyen", D: "Difficile", T: "TC" };
+  const levelKey = MODE_MAP[lettre];
+
+  if (!levelKey || !dictionary[levelKey]) {
+    console.log("Mode invalide. Relancez le programme.");
+    console.log("Modes disponibles :", Object.keys(dictionary).join(", "));
+    rl.close();
+    return;
   }
 
-  const kept = [];
-  const removed = [];
+  console.log("Vous avez choisi le mode", levelKey);
 
-  for (const item of clues) {
-    if (counts[item.clue.toLowerCase()] === 1) kept.push(item);
-    else removed.push(item);
+  // Durée des manches (une seule fois)
+  let baseRoundMs = null;
+  while (baseRoundMs === null || baseRoundMs < 5_000) {
+    const d = await askPlain("Durée d'une manche (90, 90s, 2m, 2:30) : ");
+    baseRoundMs = parseDurationToMs(d);
+    if (baseRoundMs === null) console.log("Format invalide.");
+    else if (baseRoundMs < 5_000) console.log("Trop court. Mets au moins 5 secondes.");
   }
 
-  return { kept, removed };
-}
+  // Tirage des 13 mots
+  const deck = drawRandomWords(dictionary[levelKey], 13);
 
-// askTimed (sans affichage en continu)
-function askTimed(rl, question, ms, opts = {}) {
-  const {
-    announceMinutes = true,
-    showOnceAtPrompt = true,
-    minuteThresholds = [4, 3, 2, 1]
-  } = opts;
+  // Noms des joueurs
+  const players = [];
+  console.log("\nEntrez les noms des 5 joueurs :");
 
-  return new Promise((resolve) => {
-    let done = false;
-
-    if (showOnceAtPrompt) {
-      process.stdout.write(`${question}\nTemps restant: ${formatMMSS(ms)}\n> `);
-    } else {
-      process.stdout.write(question);
+  for (let i = 0; i < 5; i++) {
+    let name = "";
+    while (!name) {
+      name = await askPlain(`Joueur ${i + 1} : `);
+      if (!name) console.log("Nom invalide. Veuillez entrer un nom non vide.");
     }
+    players.push(name);
+  }
 
-    const minuteTimers = [];
+  // Manches
+  let activeIndex = 0;
+  let score = 0;
 
-    const cleanup = () => {
-      if (done) return;
-      done = true;
-      rl.removeListener("line", onLine);
-      clearTimeout(killer);
-      minuteTimers.forEach(clearTimeout);
-    };
+  // temps variable (pénalité -5s si doublons)
+  let currentRoundMs = baseRoundMs;
 
-    const onLine = (line) => {
-      cleanup();
-      resolve(line.trim());
-    };
+  for (let round = 0; round < deck.length; round++) {
+    const res = await playRoundExpress(round, players, activeIndex, deck[round], rl, currentRoundMs);
 
-    rl.once("line", onLine);
-
-    // Annonces minutes restantes (sur le temps RESTANT donné à cet appel)
-    if (announceMinutes) {
-      for (const m of minuteThresholds) {
-        const triggerAt = ms - m * 60000;
-        if (triggerAt > 0) {
-          minuteTimers.push(
-            setTimeout(() => {
-              if (done) return;
-              process.stdout.write("\n");
-              console.log(`Il reste ${m} minute${m > 1 ? "s" : ""}.`);
-              process.stdout.write("> ");
-            }, triggerAt)
-          );
-        }
-      }
-    }
-
-    const killer = setTimeout(() => {
-      if (done) return;
-      process.stdout.write("\n");
-      console.log("⏱ Temps écoulé !");
-      cleanup();
-      resolve(null);
-    }, ms);
-  });
-}
-
-// Pause qui CONSOMME le temps de manche (comme tu as demandé)
-// Si timeout => on continue automatiquement
-async function pauseTimed(rl, message, startMs, roundMs) {
-  const rem = remainingMs(startMs, roundMs);
-  if (rem <= 0) return null;
-
-  return await askTimed(rl, message, rem, {
-    announceMinutes: false,
-    showOnceAtPrompt: false
-  });
-}
-
-// Collecte des indices (Express) — temps total partagé
-async function collectCluesExpress(rl, players, activeIndex, secretWord, banned, roundMs, startMs) {
-  const clues = [];
-
-  for (let i = 0; i < players.length; i++) {
-    if (i === activeIndex) continue;
-
-    console.clear();
-
-    let rem = remainingMs(startMs, roundMs);
-    if (rem <= 0) return { status: "OK", clues, timedOut: true };
-
-    const gate = await askTimed(
-      rl,
-      `========================================
-C'est au tour de : ${players[i]}. Préparez votre indice.
-Les autres joueurs ne doivent pas regarder.
-----> Mot mystère : ${secretWord}
-Quand vous êtes prêt(e)s, appuyez sur Entrée (ou tapez STOP) :
-======================================== `,
-      rem,
-      { announceMinutes: true, showOnceAtPrompt: false }
-    );
-
-    if (gate === null) {
-      // timeout => joueur perd son tour d'indice
-      continue;
-    }
-    if (gate.trim().toUpperCase() === "STOP") return { status: "STOP", clues, timedOut: false };
-
-    while (true) {
-      rem = remainingMs(startMs, roundMs);
-      if (rem <= 0) return { status: "OK", clues, timedOut: true };
-
-      const raw = await askTimed(rl, "Entrez votre indice (1 mot) :", rem, {
-        announceMinutes: true,
-        showOnceAtPrompt: true
-      });
-
-      if (raw === null) {
-        // timeout => indice perdu
-        break;
-      }
-
-      const clue = raw.trim().toLowerCase();
-      if (clue === "stop") return { status: "STOP", clues, timedOut: false };
-
-      if (clue === "") {
-        console.log("Indice vide interdit.");
-        continue;
-      }
-
-      if (clue.includes(" ")) {
-        console.log("Indice invalide : un seul mot (pas d'espaces).");
-        continue;
-      }
-
-      if (clue === secretWord.toLowerCase()) {
-        console.log("Indice interdit : le mot mystère lui-même.");
-        continue;
-      }
-
-      if (banned.includes(clue)) {
-        console.log("Indice interdit (mot secret, anglais, ou mot très proche).");
-        continue;
-      }
-
-      clues.push({ player: players[i], clue });
+    if (res.status === "STOP") {
+      console.log("Arrêt demandé. Fin de la partie.");
       break;
     }
 
-    // Confirmation (consomme le temps total)
-    await pauseTimed(
-      rl,
-      "Indice enregistré. Appuyez sur Entrée et passez le clavier au joueur suivant...",
-      startMs,
-      roundMs
-    );
+    if (res.correct) score += 1;
+
+    // Pénalité -5s à la manche suivante si doublons détectés
+    if ((res.duplicateCount ?? 0) > 0) {
+      currentRoundMs = Math.max(5_000, currentRoundMs - 5_000);
+      console.log(
+        `⏱ Pénalité doublon: -5s. Prochaine manche: ${formatSeconds(currentRoundMs)}s`
+      );
+    }
+
+    activeIndex = (activeIndex + 1) % players.length;
   }
 
-  console.clear();
-  return { status: "OK", clues, timedOut: false };
+  // Fin de partie
+  console.log("\nPartie terminée.");
+  console.log(`Score final : ${score} / ${deck.length}`);
+  rl.close();
 }
 
-// Joue une manche Express (temps total partagé)
-async function playRoundExpress(roundIndex, players, activeIndex, card, rl, roundMs) {
-  const activePlayer = players[activeIndex];
-
-  const secretWord = typeof card === "string" ? card : card.word;
-  const bannedRaw =
-    typeof card === "string"
-      ? []
-      : Array.isArray(card.banned)
-        ? card.banned
-        : [];
-
-  // Normalisation banned en lowercase + ajout du mot secret (sécurité)
-  const banned = Array.from(
-    new Set([secretWord.toLowerCase(), ...bannedRaw.map((x) => String(x).toLowerCase())])
-  );
-
-  console.log("\n==============================");
-  console.log(`Manche ${roundIndex + 1} / 13`);
-  console.log(`----> Joueur actif : ${activePlayer}`);
-  console.log(`Durée (Express - total manche) : ${formatMMSS(roundMs)}`);
-  console.log("==============================");
-
-  const startMs = Date.now();
-
-  // Cmd (consomme le temps total)
-  let rem = remainingMs(startMs, roundMs);
-  if (rem <= 0) {
-    console.log("⏱ Temps total écoulé avant le début réel de la manche.");
-    return { status: "OK", correct: false, duplicateCount: 0 };
-  }
-
-  const cmd = await askTimed(
-    rl,
-    `Quand ${activePlayer} s'est tourné(e), appuyez sur Entrée (ou STOP) : `,
-    rem,
-    { announceMinutes: true, showOnceAtPrompt: false }
-  );
-
-  if (cmd === null) {
-    console.log("⏱ Temps total écoulé. Manche ratée.");
-    return { status: "OK", correct: false, duplicateCount: 0 };
-  }
-  if (cmd.trim().toUpperCase() === "STOP") {
-    return { status: "STOP", correct: false, duplicateCount: 0 };
-  }
-
-  // Indices (consomme le temps total)
-  const res = await collectCluesExpress(rl, players, activeIndex, secretWord, banned, roundMs, startMs);
-  if (res.status === "STOP") return { status: "STOP", correct: false, duplicateCount: 0 };
-
-  if (res.timedOut) {
-    console.log("⏱ Temps total de la manche écoulé pendant les indices. Manche ratée.");
-    await pauseTimed(rl, "Fin de manche. Entrée pour continuer...", startMs, roundMs);
-    return { status: "OK", correct: false, duplicateCount: 0 };
-  }
-
-  // Doublons
-  const totalClues = res.clues.length;
-  const { kept, removed } = removeDuplicateClues(res.clues);
-  const eliminatedCount = totalClues - kept.length;
-
-  // Affichage indices
-  console.clear();
-  console.log(`${activePlayer}, c'est à votre tour de deviner le mot !`);
-
-  if (eliminatedCount > 0) {
-    console.log(`⚠️ ${eliminatedCount} indice(s) ont été éliminé(s) car identiques.`);
-  }
-
-  if (kept.length === 0) {
-    console.log("(Tous les indices ont été éliminés. Vous n'avez aucun indice. Bonne chance !)");
-  } else {
-    console.log("Voici les indices reçus :");
-    kept.forEach(({ player, clue }, index) => {
-      console.log(`- Indice ${index + 1} de ${player} : ${clue}`);
-    });
-  }
-
-  // Réponse (consomme le temps total)
-  rem = remainingMs(startMs, roundMs);
-  if (rem <= 0) {
-    console.log(`⏱ Temps total écoulé. Mauvaise réponse. Le mot était : ${secretWord}`);
-    await pauseTimed(rl, "Fin de manche. Entrée pour continuer...", startMs, roundMs);
-    return { status: "OK", correct: false, duplicateCount: eliminatedCount };
-  }
-
-  const rawGuess = await askTimed(rl, "Entrez votre réponse (ou STOP) :", rem, {
-    announceMinutes: true,
-    showOnceAtPrompt: true
-  });
-
-  if (rawGuess === null) {
-    console.log(`⏱ Temps total écoulé. Mauvaise réponse. Le mot était : ${secretWord}`);
-    await pauseTimed(rl, "Fin de manche. Entrée pour continuer...", startMs, roundMs);
-    return { status: "OK", correct: false, duplicateCount: eliminatedCount };
-  }
-
-  const guess = rawGuess.trim().toLowerCase();
-  if (guess === "stop") return { status: "STOP", correct: false, duplicateCount: eliminatedCount };
-
-  const correct = guess === secretWord.toLowerCase();
-  if (correct) console.log("Bonne réponse !");
-  else console.log(`Mauvaise réponse. Le mot était : ${secretWord}`);
-
-  // Fin de manche (consomme le temps total)
-  await pauseTimed(rl, "Fin de manche. Entrée pour continuer...", startMs, roundMs);
-
-  return { status: "OK", correct, duplicateCount: eliminatedCount };
-}
-
-module.exports = {
-  drawRandomWords,
-  playRoundExpress
-};
+main();
