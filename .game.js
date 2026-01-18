@@ -42,7 +42,8 @@ Quand vous êtes prêt(e)s et que les autres joueurs ne regardent pas, appuyez s
     while (true) {
       clue = (await ask("Entrez votre indice (1 mot) : "))
         .trim()
-        .toLowerCase();
+        .toLowerCase()
+        .replace(/s$/, "");
 
     if (clue === "stop") return { status: "STOP", clues };
       if (clue === secretWord.toLowerCase()) {
