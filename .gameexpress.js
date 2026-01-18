@@ -127,6 +127,11 @@ Quand vous êtes prêt(e)s, appuyez sur Entrée (ou tapez STOP) :
       const clue = raw.trim().toLowerCase();
       if (clue === "stop") return { status: "STOP", clues };
 
+      if (clue === secretWord.toLowerCase()) {
+        console.log("Indice interdit : le mot mystère lui même.");
+        continue;
+      }
+
       if (clue === "") {
         console.log("Indice vide interdit.");
         continue;
@@ -159,6 +164,18 @@ Quand vous êtes prêt(e)s, appuyez sur Entrée (ou tapez STOP) :
 
   console.clear();
   return { status: "OK", clues };
+}
+
+// élimine les indices en double
+function removeDuplicateClues(clues) {
+  const counts = {};
+
+  for (const { clue } of clues) {
+    const key = clue.toLowerCase();
+    counts[key] = (counts[key] || 0) + 1;
+  }
+
+  return clues.filter(({ clue }) => counts[clue.toLowerCase()] === 1);
 }
 
 // Joue une manche Express
@@ -194,34 +211,35 @@ async function playRoundExpress(roundIndex, players, activeIndex, card, rl, roun
   // Réponse du joueur actif
   console.clear();
   console.log(`${activePlayer}, c'est à votre tour de deviner le mot !`);
-  console.log("Voici les indices reçus :");
-  res.clues.forEach(({ player, clue }, index) => {
-    console.log(`- Indice ${index + 1} de ${player} : ${clue}`);
-  });
+  const finalClues = removeDuplicateClues(res.clues);
+  const eliminatedCount = totalClues - finalClues.length;
 
-  // affiche le temps UNE SEULE FOIS au moment de demander la réponse
-  const rawGuess = await askTimed(rl, "Entrez votre réponse (ou STOP) :", roundMs, {
-    announceMinutes: true,
-    showOnceAtPrompt: true
-  });
-
-  if (rawGuess === null) {
-    console.log(`Temps écoulé. Mauvaise réponse. Le mot était : ${secretWord}`);
-    await askTimed(rl, "Fin de manche. Entrée pour continuer...", roundMs, {
-      announceMinutes: false,
-      showOnceAtPrompt: false
-    });
-    return { status: "OK", correct: false };
+  if (eliminatedCount > 0) {
+    console.log(`⚠️ ${eliminatedCount} indice(s) ont été éliminé(s) car identiques.`);
   }
 
-  const guess = rawGuess.trim().toLowerCase();
-  if (guess === "stop") return { status: "STOP", correct: false };
+  if (finalClues.length === 0) {
+    console.log("(Tous les indices ont été donc éliminés. Vous n'avez aucun indice. Bonne chance ! )");
+  } else {
+    console.log("Voici les indices reçus :");
+    finalClues.forEach(({ player, clue }, index) => {
+      console.log(`- Indice ${index + 1} de ${player} : ${clue}`);
+    });
+  }
 
-  const correct = guess === secretWord.toLowerCase();
-  if (correct) console.log("Bonne réponse !");
-  else console.log(`Mauvaise réponse. Le mot était : ${secretWord}`);
+  const guess = (await askTimed("Entrez votre réponse (ou STOP pour arrêter) : "))
+    .trim()
+    .toLowerCase();
 
-  await askTimed(rl, "Fin de manche. Entrée pour continuer...", roundMs, {
+  if (guess === "stop") return "STOP";
+
+  if (guess === secretWord.toLowerCase()) {
+    console.log("Bonne réponse, bien joué " + activePlayer + " et à toute l'équipe !");
+  } else {
+    console.log(`Mauvaise réponse. Le mot était : ${secretWord}`);
+  }
+
+  await askTimed(rl, "C'est la fin de cette manche n°" + roundIndex + ". Appuyez sur Entrée pour passez à la manche suivante...", roundMs, {
     announceMinutes: false,
     showOnceAtPrompt: false
   });
