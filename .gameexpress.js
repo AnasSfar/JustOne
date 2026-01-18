@@ -1,7 +1,4 @@
-const readline = require("readline");
-
 // Tire N mots au hasard sans répétition
-
 function drawRandomWords(words, count) {
   const pool = [...words];
   const result = [];
@@ -21,8 +18,26 @@ function formatMMSS(ms) {
   return `${mm}:${ss}`;
 }
 
-// askTimed (sans affichage en continu)
+// Supprime les doublons (insensible à la casse) et renvoie kept/removed
+function removeDuplicateClues(clues) {
+  const counts = {};
+  for (const { clue } of clues) {
+    const key = clue.toLowerCase();
+    counts[key] = (counts[key] || 0) + 1;
+  }
 
+  const kept = [];
+  const removed = [];
+
+  for (const item of clues) {
+    if (counts[item.clue.toLowerCase()] === 1) kept.push(item);
+    else removed.push(item);
+  }
+
+  return { kept, removed };
+}
+
+// askTimed (sans affichage en continu)
 function askTimed(rl, question, ms, opts = {}) {
   const {
     announceMinutes = true,
@@ -33,7 +48,6 @@ function askTimed(rl, question, ms, opts = {}) {
   return new Promise((resolve) => {
     let done = false;
 
-    // Affichage du prompt (une fois)
     if (showOnceAtPrompt) {
       process.stdout.write(`${question}\nTemps disponible: ${formatMMSS(ms)}\n> `);
     } else {
@@ -57,7 +71,6 @@ function askTimed(rl, question, ms, opts = {}) {
 
     rl.once("line", onLine);
 
-    // Annonces minutes restantes
     if (announceMinutes) {
       for (const m of minuteThresholds) {
         const triggerAt = ms - m * 60000;
@@ -74,7 +87,6 @@ function askTimed(rl, question, ms, opts = {}) {
       }
     }
 
-    // Timeout final
     const killer = setTimeout(() => {
       if (done) return;
       process.stdout.write("\n");
@@ -85,8 +97,12 @@ function askTimed(rl, question, ms, opts = {}) {
   });
 }
 
-// Collecte des indices (Express)
+// Pause simple (sans timer) pour éviter les comportements bizarres
+function pause(rl, message) {
+  return new Promise((resolve) => rl.question(message, () => resolve()));
+}
 
+// Collecte des indices (Express)
 async function collectCluesExpress(rl, players, activeIndex, secretWord, banned, roundMs) {
   const clues = [];
 
@@ -94,6 +110,7 @@ async function collectCluesExpress(rl, players, activeIndex, secretWord, banned,
     if (i === activeIndex) continue;
 
     console.clear();
+
     const gate = await askTimed(
       rl,
       `========================================
@@ -112,9 +129,8 @@ Quand vous êtes prêt(e)s, appuyez sur Entrée (ou tapez STOP) :
     }
     if (gate.trim().toUpperCase() === "STOP") return { status: "STOP", clues };
 
-    // Saisie de l'indice (AFFICHE le temps UNE SEULE FOIS ici)
     while (true) {
-      const raw = await askTimed(rl, "Entrez votre indice (1 mot)", roundMs, {
+      const raw = await askTimed(rl, "Entrez votre indice (1 mot) :", roundMs, {
         announceMinutes: true,
         showOnceAtPrompt: true
       });
@@ -128,7 +144,7 @@ Quand vous êtes prêt(e)s, appuyez sur Entrée (ou tapez STOP) :
       if (clue === "stop") return { status: "STOP", clues };
 
       if (clue === secretWord.toLowerCase()) {
-        console.log("Indice interdit : le mot mystère lui même.");
+        console.log("Indice interdit : le mot mystère lui-même.");
         continue;
       }
 
@@ -143,9 +159,7 @@ Quand vous êtes prêt(e)s, appuyez sur Entrée (ou tapez STOP) :
       }
 
       if (banned.includes(clue)) {
-        console.log(
-          "Indice interdit (interdit : le mot secret lui-même, sa traduction, ou un mot très proche)."
-        );
+        console.log("Indice interdit (mot secret, anglais, ou mot très proche).");
         continue;
       }
 
@@ -153,38 +167,23 @@ Quand vous êtes prêt(e)s, appuyez sur Entrée (ou tapez STOP) :
       break;
     }
 
-    // Confirmation (pas besoin d'afficher le temps)
-    await askTimed(
-      rl,
-      "Indice enregistré. Appuyez sur Entrée et passez le clavier au joueur suivant...",
-      roundMs,
-      { announceMinutes: false, showOnceAtPrompt: false }
-    );
+    // Confirmation sans timer
+    await pause(rl, "Indice enregistré. Entrée et passez le clavier au joueur suivant...");
   }
 
   console.clear();
   return { status: "OK", clues };
 }
 
-// élimine les indices en double
-function removeDuplicateClues(clues) {
-  const counts = {};
-
-  for (const { clue } of clues) {
-    const key = clue.toLowerCase();
-    counts[key] = (counts[key] || 0) + 1;
-  }
-
-  return clues.filter(({ clue }) => counts[clue.toLowerCase()] === 1);
-}
-
-// Joue une manche Express
-// Règle: si timeout sur la réponse => faux
-
+// Joue une manche Express (OPTION 1 : timeout => manche ratée, partie continue)
 async function playRoundExpress(roundIndex, players, activeIndex, card, rl, roundMs) {
   const activePlayer = players[activeIndex];
-  const secretWord = card.word;
-  const banned = card.banned;
+
+  const secretWord = typeof card === "string" ? card : card.word;
+  const banned =
+    typeof card === "string"
+      ? [secretWord.toLowerCase()]
+      : (card.banned ?? [secretWord.toLowerCase()]);
 
   console.log("\n==============================");
   console.log(`Manche ${roundIndex + 1} / 13`);
@@ -201,65 +200,57 @@ async function playRoundExpress(roundIndex, players, activeIndex, card, rl, roun
 
   if (cmd === null) {
     console.log("Manche passée (timeout).");
-    return { status: "OK", correct: false };
+    return { status: "OK", correct: false, duplicateCount: 0 };
   }
-  if (cmd.trim().toUpperCase() === "STOP") return { status: "STOP", correct: false };
+  if (cmd.trim().toUpperCase() === "STOP") {
+    return { status: "STOP", correct: false, duplicateCount: 0 };
+  }
 
   const res = await collectCluesExpress(rl, players, activeIndex, secretWord, banned, roundMs);
-  if (res.status === "STOP") return { status: "STOP", correct: false };
+  if (res.status === "STOP") return { status: "STOP", correct: false, duplicateCount: 0 };
 
-  // Réponse du joueur actif
-  // Réponse du joueur actif
-console.clear();
-console.log(`${activePlayer}, c'est à votre tour de deviner le mot !`);
+  const totalClues = res.clues.length;
+  const { kept, removed } = removeDuplicateClues(res.clues);
+  const eliminatedCount = totalClues - kept.length;
 
-const totalClues = res.clues.length;
-const finalClues = removeDuplicateClues(res.clues);
-const eliminatedCount = totalClues - finalClues.length;
+  // Affichage indices
+  console.clear();
+  console.log(`${activePlayer}, c'est à votre tour de deviner le mot !`);
 
-if (eliminatedCount > 0) {
-  console.log(`⚠️ ${eliminatedCount} indice(s) ont été éliminé(s) car identiques.`);
-}
+  if (eliminatedCount > 0) {
+    console.log(`⚠️ ${eliminatedCount} indice(s) ont été éliminé(s) car identiques.`);
+  }
 
-if (finalClues.length === 0) {
-  console.log("(Tous les indices ont été éliminés. Vous n'avez aucun indice. Bonne chance !)");
-} else {
-  console.log("Voici les indices reçus :");
-  finalClues.forEach(({ player, clue }, index) => {
-    console.log(`- Indice ${index + 1} de ${player} : ${clue}`);
+  if (kept.length === 0) {
+    console.log("(Tous les indices ont été éliminés. Vous n'avez aucun indice. Bonne chance !)");
+  } else {
+    console.log("Voici les indices reçus :");
+    kept.forEach(({ player, clue }, index) => {
+      console.log(`- Indice ${index + 1} de ${player} : ${clue}`);
+    });
+  }
+
+  const rawGuess = await askTimed(rl, "Entrez votre réponse (ou STOP) :", roundMs, {
+    announceMinutes: true,
+    showOnceAtPrompt: true
   });
-}
 
-// IMPORTANT : appel correct de askTimed + gestion timeout
-const rawGuess = await askTimed(
-  rl,
-  "Entrez votre réponse (ou STOP pour arrêter) :",
-  roundMs,
-  { announceMinutes: true, showOnceAtPrompt: true }
-);
+  if (rawGuess === null) {
+    console.log(`⏱ Temps écoulé. Mauvaise réponse. Le mot était : ${secretWord}`);
+    await pause(rl, "Fin de manche. Entrée pour continuer...");
+    return { status: "OK", correct: false, duplicateCount: eliminatedCount };
+  }
 
-if (rawGuess === null) {
-  console.log(`⏱ Temps écoulé. Mauvaise réponse. Le mot était : ${secretWord}`);
-  await askTimed(rl, "Fin de manche. Entrée pour continuer...", roundMs, {
-    announceMinutes: false,
-    showOnceAtPrompt: false
-  });
-  return { status: "OK", correct: false, duplicateCount: eliminatedCount };
-}
+  const guess = rawGuess.trim().toLowerCase();
+  if (guess === "stop") return { status: "STOP", correct: false, duplicateCount: eliminatedCount };
 
-const guess = rawGuess.trim().toLowerCase();
-if (guess === "stop") return { status: "STOP", correct: false, duplicateCount: eliminatedCount };
+  const correct = guess === secretWord.toLowerCase();
+  if (correct) console.log("Bonne réponse !");
+  else console.log(`Mauvaise réponse. Le mot était : ${secretWord}`);
 
-const correct = guess === secretWord.toLowerCase();
-if (correct) console.log("Bonne réponse, bien joué " + activePlayer + " et à toute l'équipe !");
-else console.log(`Mauvaise réponse. Le mot était : ${secretWord}`);
+  await pause(rl, "Fin de manche. Entrée pour continuer...");
 
-await askTimed(rl, "Fin de manche. Entrée pour continuer...", roundMs, {
-  announceMinutes: false,
-  showOnceAtPrompt: false
-});
-
-return { status: "OK", correct, duplicateCount: eliminatedCount };
+  return { status: "OK", correct, duplicateCount: eliminatedCount };
 }
 
 module.exports = {

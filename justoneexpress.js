@@ -32,31 +32,36 @@ function parseDurationToMs(input) {
   return null;
 }
 
+function formatSeconds(ms) {
+  return Math.ceil(ms / 1000);
+}
+
 async function main() {
-  // Choix du niveau
+  // Choix du niveau (4 modes)
   const niv = await askPlain(
-    "Bienvenue dans Just One Express !\nChoisissez un mode (F = Facile, M = Intermédiaire, D = Difficile) : "
+    "Bienvenue dans Just One Express !\nChoisissez un mode (F = Facile, M = Moyen, D = Difficile, T = TC) : "
   );
 
-  const lettre = niv.toUpperCase();
-  if (!["F", "M", "D"].includes(lettre)) {
+  const lettre = niv.trim().toUpperCase();
+  const MODE_MAP = { F: "Facile", M: "Moyen", D: "Difficile", T: "TC" };
+  const levelKey = MODE_MAP[lettre];
+
+  if (!levelKey || !dictionary[levelKey]) {
     console.log("Mode invalide. Relancez le programme.");
+    console.log("Modes disponibles :", Object.keys(dictionary).join(", "));
     rl.close();
     return;
   }
 
-  const levelKey = lettre === "F" ? "Facile" : lettre === "M" ? "Moyen" : "Difficile";
   console.log("Vous avez choisi le mode", levelKey);
 
   // Durée des manches (une seule fois)
-  let roundMs = null;
-  while (roundMs === null || roundMs < 5_000) {
-    const d = await askPlain(
-      "Durée d'une manche (formats possibles: 90, 90s, 2m, 2:30) : "
-    );
-    roundMs = parseDurationToMs(d);
-    if (roundMs === null) console.log("Format invalide.");
-    else if (roundMs < 5_000) console.log("Trop court. Mets au moins 5 secondes.");
+  let baseRoundMs = null;
+  while (baseRoundMs === null || baseRoundMs < 5_000) {
+    const d = await askPlain("Durée d'une manche (90, 90s, 2m, 2:30) : ");
+    baseRoundMs = parseDurationToMs(d);
+    if (baseRoundMs === null) console.log("Format invalide.");
+    else if (baseRoundMs < 5_000) console.log("Trop court. Mets au moins 5 secondes.");
   }
 
   // Tirage des 13 mots
@@ -79,8 +84,11 @@ async function main() {
   let activeIndex = 0;
   let score = 0;
 
+  // temps variable (pénalité -5s si doublons)
+  let currentRoundMs = baseRoundMs;
+
   for (let round = 0; round < deck.length; round++) {
-    const res = await playRoundExpress(round, players, activeIndex, deck[round], rl, roundMs);
+    const res = await playRoundExpress(round, players, activeIndex, deck[round], rl, currentRoundMs);
 
     if (res.status === "STOP") {
       console.log("Arrêt demandé. Fin de la partie.");
@@ -88,6 +96,15 @@ async function main() {
     }
 
     if (res.correct) score += 1;
+
+    // Pénalité -5s à la manche suivante si doublons détectés
+    if ((res.duplicateCount ?? 0) > 0) {
+      currentRoundMs = Math.max(5_000, currentRoundMs - 5_000);
+      console.log(
+        `⏱ Pénalité doublon: -5s. Prochaine manche: ${formatSeconds(currentRoundMs)}s`
+      );
+    }
+
     activeIndex = (activeIndex + 1) % players.length;
   }
 
