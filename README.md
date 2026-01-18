@@ -1,5 +1,5 @@
 ************************************************************
-                 JUST ONE – VERSION JAVASCRIPT
+                 JUST ONE – VERSION JAVASCRIPT | ANAS SFAR - FARAH GATTOUFI - YOUSRA MOUNIM
 ************************************************************
 
 Ce jeu est une adaptation en ligne de commande du jeu
