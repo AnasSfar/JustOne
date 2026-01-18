@@ -27,11 +27,11 @@ const rl = readline.createInterface({
 async function main() {
   // Choix du niveau
   const niv = await ask(
-    "Bienvenue dans Just One ! \nChoisissez un mode (F = Facile, M = Intermédiaire, D = Difficile) : "
+    "Bienvenue dans Just One ! \nChoisissez un mode (TC = Version TC, F = Facile, M = Intermédiaire, D = Difficile) : "
   );
 
   const lettre = niv.toUpperCase();
-  if (!["F", "M", "D"].includes(lettre)) {
+  if (!["TC", "F", "M", "D"].includes(lettre)) {
     console.log("Mode invalide. Relancez le programme.");
     rl.close();
     return;
@@ -40,7 +40,8 @@ async function main() {
   const levelKey =
     lettre === "F" ? "Facile" :
     lettre === "M" ? "Moyen" :
-    "Difficile";
+    lettre === "D" ? "Difficile" : 
+    "TC";
 
   console.log("Vous avez choisi le mode", levelKey);
 

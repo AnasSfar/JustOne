@@ -45,7 +45,10 @@ Quand vous êtes prêt(e)s et que les autres joueurs ne regardent pas, appuyez s
         .toLowerCase();
 
     if (clue === "stop") return { status: "STOP", clues };
-
+      if (clue === secretWord.toLowerCase()) {
+        console.log("Indice interdit : le mot secret lui même.");
+        continue;
+      }
       if (clue === "") {
         console.log("Indice vide interdit.");
         continue;
