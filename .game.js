@@ -73,6 +73,18 @@ Quand vous êtes prêt(e)s et que les autres joueurs ne regardent pas, appuyez s
   return { status: "OK", clues };
 }
 
+// élimine les indices en double
+function removeDuplicateClues(clues) {
+  const counts = {};
+
+  for (const { clue } of clues) {
+    const key = clue.toLowerCase();
+    counts[key] = (counts[key] || 0) + 1;
+  }
+
+  return clues.filter(({ clue }) => counts[clue.toLowerCase()] === 1);
+}
+
 // Joue une manche
 async function playRound(roundIndex, players, activeIndex, card, ask) {
   const activePlayer = players[activeIndex];
@@ -99,11 +111,17 @@ async function playRound(roundIndex, players, activeIndex, card, ask) {
   // Réponse du joueur actif
   console.clear();
   console.log(`${activePlayer}, c'est à votre tour de deviner le mot !`);
-  console.log("Voici les indices reçus :");
-  res.clues.forEach(({ player, clue }, index) => {
-    console.log(`- Indice ${index + 1} de ${player} : ${clue}`);
-  });
+  const finalClues = removeDuplicateClues(res.clues);
 
+  console.log("Voici les indices reçus :");
+  if (finalClues.length === 0) {
+    console.log("(Tous les indices ont été éliminés)");
+  } else {
+    finalClues.forEach(({ player, clue }, index) => {
+      console.log(`- Indice ${index + 1} de ${player} : ${clue}`);
+    });
+  }
+  
   const guess = (await ask("Entrez votre réponse (ou STOP pour arrêter) : "))
     .trim()
     .toLowerCase();
