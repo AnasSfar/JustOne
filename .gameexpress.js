@@ -1,9 +1,9 @@
 // .gameexpress.js
 // Express avec VRAI temps total de manche (le temps diminue entre joueurs)
+// Le chrono démarre UNIQUEMENT après que le joueur actif se soit tourné (après le cmd)
 // + doublons (duplicateCount renvoyé au main pour -5s)
 // OPTION 1 : timeout => manche ratée / on continue la partie
 
-// Tire N mots au hasard sans répétition
 function drawRandomWords(words, count) {
   const pool = [...words];
   const result = [];
@@ -47,7 +47,6 @@ function removeDuplicateClues(clues) {
   return { kept, removed };
 }
 
-// askTimed (sans affichage en continu)
 function askTimed(rl, question, ms, opts = {}) {
   const {
     announceMinutes = true,
@@ -81,7 +80,6 @@ function askTimed(rl, question, ms, opts = {}) {
 
     rl.once("line", onLine);
 
-    // Annonces minutes restantes (sur le temps RESTANT donné à cet appel)
     if (announceMinutes) {
       for (const m of minuteThresholds) {
         const triggerAt = ms - m * 60000;
@@ -108,8 +106,7 @@ function askTimed(rl, question, ms, opts = {}) {
   });
 }
 
-// Pause qui CONSOMME le temps de manche (comme tu as demandé)
-// Si timeout => on continue automatiquement
+// Pause qui CONSOMME le temps de manche (passe clavier, fin de manche, etc.)
 async function pauseTimed(rl, message, startMs, roundMs) {
   const rem = remainingMs(startMs, roundMs);
   if (rem <= 0) return null;
@@ -159,10 +156,7 @@ Quand vous êtes prêt(e)s, appuyez sur Entrée (ou tapez STOP) :
         showOnceAtPrompt: true
       });
 
-      if (raw === null) {
-        // timeout => indice perdu
-        break;
-      }
+      if (raw === null) break;
 
       const clue = raw.trim().toLowerCase();
       if (clue === "stop") return { status: "STOP", clues, timedOut: false };
@@ -171,17 +165,14 @@ Quand vous êtes prêt(e)s, appuyez sur Entrée (ou tapez STOP) :
         console.log("Indice vide interdit.");
         continue;
       }
-
       if (clue.includes(" ")) {
         console.log("Indice invalide : un seul mot (pas d'espaces).");
         continue;
       }
-
       if (clue === secretWord.toLowerCase()) {
         console.log("Indice interdit : le mot mystère lui-même.");
         continue;
       }
-
       if (banned.includes(clue)) {
         console.log("Indice interdit (mot secret, anglais, ou mot très proche).");
         continue;
@@ -191,7 +182,6 @@ Quand vous êtes prêt(e)s, appuyez sur Entrée (ou tapez STOP) :
       break;
     }
 
-    // Confirmation (consomme le temps total)
     await pauseTimed(
       rl,
       "Indice enregistré. Appuyez sur Entrée et passez le clavier au joueur suivant...",
@@ -204,7 +194,7 @@ Quand vous êtes prêt(e)s, appuyez sur Entrée (ou tapez STOP) :
   return { status: "OK", clues, timedOut: false };
 }
 
-// Joue une manche Express (temps total partagé)
+// Manche Express (chrono démarre après cmd)
 async function playRoundExpress(roundIndex, players, activeIndex, card, rl, roundMs) {
   const activePlayer = players[activeIndex];
 
@@ -216,7 +206,6 @@ async function playRoundExpress(roundIndex, players, activeIndex, card, rl, roun
         ? card.banned
         : [];
 
-  // Normalisation banned en lowercase + ajout du mot secret (sécurité)
   const banned = Array.from(
     new Set([secretWord.toLowerCase(), ...bannedRaw.map((x) => String(x).toLowerCase())])
   );
@@ -227,31 +216,18 @@ async function playRoundExpress(roundIndex, players, activeIndex, card, rl, roun
   console.log(`Durée (Express - total manche) : ${formatMMSS(roundMs)}`);
   console.log("==============================");
 
-  const startMs = Date.now();
-
-  // Cmd (consomme le temps total)
-  let rem = remainingMs(startMs, roundMs);
-  if (rem <= 0) {
-    console.log("⏱ Temps total écoulé avant le début réel de la manche.");
-    return { status: "OK", correct: false, duplicateCount: 0 };
-  }
-
-  const cmd = await askTimed(
-    rl,
-    `Quand ${activePlayer} s'est tourné(e), appuyez sur Entrée (ou STOP) : `,
-    rem,
-    { announceMinutes: true, showOnceAtPrompt: false }
+  // IMPORTANT : ce "cmd" ne consomme pas le temps de manche
+  const cmd = await new Promise((resolve) =>
+    rl.question(`Quand ${activePlayer} s'est tourné(e), appuyez sur Entrée (ou STOP) : `, (ans) =>
+      resolve(ans.trim())
+    )
   );
 
-  if (cmd === null) {
-    console.log("⏱ Temps total écoulé. Manche ratée.");
-    return { status: "OK", correct: false, duplicateCount: 0 };
-  }
-  if (cmd.trim().toUpperCase() === "STOP") {
-    return { status: "STOP", correct: false, duplicateCount: 0 };
-  }
+  if (cmd.toUpperCase() === "STOP") return { status: "STOP", correct: false, duplicateCount: 0 };
 
-  // Indices (consomme le temps total)
+  // Chrono démarre ici
+  const startMs = Date.now();
+
   const res = await collectCluesExpress(rl, players, activeIndex, secretWord, banned, roundMs, startMs);
   if (res.status === "STOP") return { status: "STOP", correct: false, duplicateCount: 0 };
 
@@ -261,12 +237,10 @@ async function playRoundExpress(roundIndex, players, activeIndex, card, rl, roun
     return { status: "OK", correct: false, duplicateCount: 0 };
   }
 
-  // Doublons
   const totalClues = res.clues.length;
   const { kept, removed } = removeDuplicateClues(res.clues);
   const eliminatedCount = totalClues - kept.length;
 
-  // Affichage indices
   console.clear();
   console.log(`${activePlayer}, c'est à votre tour de deviner le mot !`);
 
@@ -283,8 +257,7 @@ async function playRoundExpress(roundIndex, players, activeIndex, card, rl, roun
     });
   }
 
-  // Réponse (consomme le temps total)
-  rem = remainingMs(startMs, roundMs);
+  let rem = remainingMs(startMs, roundMs);
   if (rem <= 0) {
     console.log(`⏱ Temps total écoulé. Mauvaise réponse. Le mot était : ${secretWord}`);
     await pauseTimed(rl, "Fin de manche. Entrée pour continuer...", startMs, roundMs);
@@ -309,7 +282,6 @@ async function playRoundExpress(roundIndex, players, activeIndex, card, rl, roun
   if (correct) console.log("Bonne réponse !");
   else console.log(`Mauvaise réponse. Le mot était : ${secretWord}`);
 
-  // Fin de manche (consomme le temps total)
   await pauseTimed(rl, "Fin de manche. Entrée pour continuer...", startMs, roundMs);
 
   return { status: "OK", correct, duplicateCount: eliminatedCount };
