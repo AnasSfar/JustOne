@@ -139,7 +139,6 @@ async function playRound(roundIndex, players, activeIndex, card, ask) {
 
   if (guess === secretWord.toLowerCase()) {
     console.log("Bonne réponse, bien joué " + activePlayer + " et à toute l'équipe !");
-    score.increment();
   } else {
     console.log(`Mauvaise réponse. Le mot était : ${secretWord}`);
   }
@@ -147,6 +146,24 @@ async function playRound(roundIndex, players, activeIndex, card, ask) {
   await ask("C'est la fin de cette manche n°" + roundIndex + ". Appuyez sur Entrée pour passez à la manche suivante...");
   return "OK";
 }
+
+// score
+const correct = guess === secretWord.toLowerCase();
+
+if (correct) {
+  // +1 de base
+  score.add(1);
+
+  // bonus si aucun doublon (donc removed.length === 0)
+  if (removed.length === 0) score.add(1);
+
+  console.log("Bonne réponse, bien joué " + activePlayer + " et à toute l'équipe !");
+} else {
+  console.log(`Mauvaise réponse. Le mot était : ${secretWord}`);
+}
+
+// malus si tous éliminés (kept.length === 0)
+if (kept.length === 0) score.add(-1);
 
 module.exports = {
   drawRandomWords,

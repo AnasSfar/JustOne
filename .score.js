@@ -1,7 +1,7 @@
 let score = 0;
 
-function increment() {
-  score += 1;
+function add(n) {
+  score += n;
 }
 
 function getScore() {
@@ -12,8 +12,4 @@ function resetScore() {
   score = 0;
 }
 
-module.exports = {
-  increment,
-  getScore,
-  resetScore
-};
+module.exports = { add, getScore, resetScore };
