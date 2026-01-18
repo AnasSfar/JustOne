@@ -209,42 +209,57 @@ async function playRoundExpress(roundIndex, players, activeIndex, card, rl, roun
   if (res.status === "STOP") return { status: "STOP", correct: false };
 
   // Réponse du joueur actif
-  console.clear();
-  console.log(`${activePlayer}, c'est à votre tour de deviner le mot !`);
-  const finalClues = removeDuplicateClues(res.clues);
-  const eliminatedCount = totalClues - finalClues.length;
+  // Réponse du joueur actif
+console.clear();
+console.log(`${activePlayer}, c'est à votre tour de deviner le mot !`);
 
-  if (eliminatedCount > 0) {
-    console.log(`⚠️ ${eliminatedCount} indice(s) ont été éliminé(s) car identiques.`);
-  }
+const totalClues = res.clues.length;
+const finalClues = removeDuplicateClues(res.clues);
+const eliminatedCount = totalClues - finalClues.length;
 
-  if (finalClues.length === 0) {
-    console.log("(Tous les indices ont été donc éliminés. Vous n'avez aucun indice. Bonne chance ! )");
-  } else {
-    console.log("Voici les indices reçus :");
-    finalClues.forEach(({ player, clue }, index) => {
-      console.log(`- Indice ${index + 1} de ${player} : ${clue}`);
-    });
-  }
+if (eliminatedCount > 0) {
+  console.log(`⚠️ ${eliminatedCount} indice(s) ont été éliminé(s) car identiques.`);
+}
 
-  const guess = (await askTimed("Entrez votre réponse (ou STOP pour arrêter) : "))
-    .trim()
-    .toLowerCase();
+if (finalClues.length === 0) {
+  console.log("(Tous les indices ont été éliminés. Vous n'avez aucun indice. Bonne chance !)");
+} else {
+  console.log("Voici les indices reçus :");
+  finalClues.forEach(({ player, clue }, index) => {
+    console.log(`- Indice ${index + 1} de ${player} : ${clue}`);
+  });
+}
 
-  if (guess === "stop") return "STOP";
+// IMPORTANT : appel correct de askTimed + gestion timeout
+const rawGuess = await askTimed(
+  rl,
+  "Entrez votre réponse (ou STOP pour arrêter) :",
+  roundMs,
+  { announceMinutes: true, showOnceAtPrompt: true }
+);
 
-  if (guess === secretWord.toLowerCase()) {
-    console.log("Bonne réponse, bien joué " + activePlayer + " et à toute l'équipe !");
-  } else {
-    console.log(`Mauvaise réponse. Le mot était : ${secretWord}`);
-  }
-
-  await askTimed(rl, "C'est la fin de cette manche n°" + roundIndex + ". Appuyez sur Entrée pour passez à la manche suivante...", roundMs, {
+if (rawGuess === null) {
+  console.log(`⏱ Temps écoulé. Mauvaise réponse. Le mot était : ${secretWord}`);
+  await askTimed(rl, "Fin de manche. Entrée pour continuer...", roundMs, {
     announceMinutes: false,
     showOnceAtPrompt: false
   });
+  return { status: "OK", correct: false, duplicateCount: eliminatedCount };
+}
 
-  return { status: "OK", correct };
+const guess = rawGuess.trim().toLowerCase();
+if (guess === "stop") return { status: "STOP", correct: false, duplicateCount: eliminatedCount };
+
+const correct = guess === secretWord.toLowerCase();
+if (correct) console.log("Bonne réponse, bien joué " + activePlayer + " et à toute l'équipe !");
+else console.log(`Mauvaise réponse. Le mot était : ${secretWord}`);
+
+await askTimed(rl, "Fin de manche. Entrée pour continuer...", roundMs, {
+  announceMinutes: false,
+  showOnceAtPrompt: false
+});
+
+return { status: "OK", correct, duplicateCount: eliminatedCount };
 }
 
 module.exports = {
