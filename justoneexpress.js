@@ -43,7 +43,7 @@ async function main() {
   );
 
   const lettre = niv.trim().toUpperCase();
-  const MODE_MAP = { F: "Facile", M: "Moyen", D: "Difficile", T: "TC" };
+  const MODE_MAP = { F: "Facile", M: "Moyen", D: "Difficile", TC: "TC" };
   const levelKey = MODE_MAP[lettre];
 
   if (!levelKey || !dictionary[levelKey]) {
