@@ -112,16 +112,21 @@ async function playRound(roundIndex, players, activeIndex, card, ask) {
   console.clear();
   console.log(`${activePlayer}, c'est à votre tour de deviner le mot !`);
   const finalClues = removeDuplicateClues(res.clues);
+  const eliminatedCount = totalClues - finalClues.length;
 
-  console.log("Voici les indices reçus :");
+  if (eliminatedCount > 0) {
+    console.log(`⚠️ ${eliminatedCount} indice(s) ont été éliminé(s) car identiques.`);
+  }
+
   if (finalClues.length === 0) {
-    console.log("(Tous les indices ont été éliminés)");
+    console.log("(Tous les indices ont été donc éliminés. Vous n'avez aucun indice. Bonne chance ! )");
   } else {
+    console.log("Voici les indices reçus :");
     finalClues.forEach(({ player, clue }, index) => {
       console.log(`- Indice ${index + 1} de ${player} : ${clue}`);
     });
   }
-  
+
   const guess = (await ask("Entrez votre réponse (ou STOP pour arrêter) : "))
     .trim()
     .toLowerCase();
