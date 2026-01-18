@@ -11,7 +11,7 @@ Le projet propose :
 - plusieurs améliorations par rapport au jeu original
 
 
-*** 1. PRINCIPE DU JEU ***
+### 1. PRINCIPE DU JEU 
 
 - 5 joueurs
 - Le jeu se joue en manches
@@ -24,7 +24,7 @@ Le projet propose :
 Le jeu est coopératif :
 le score est commun à toute l’équipe.
 
-*** 2. DICTIONNAIRE ***
+### 2. DICTIONNAIRE
 
 Contrairement au jeu original, les joueurs n'auront pas à choisir des mots. Il existe un dictionnaire avec 13 mots. Le dictionnaire est un fichier JSON structuré par modes de difficulté.
 
@@ -49,7 +49,7 @@ Le dictionnaire est fixe :
 aucune modification automatique n’est faite pendant le jeu.
 
 
-*** 3. REGLES DES INDICES ***
+### 3. REGLES DES INDICES
 
 Un indice est REFUSE s’il :
 - est vide
@@ -61,7 +61,7 @@ Chaque joueur doit donc proposer un indice original
 et indirect.
 
 
-*** 4. GESTION DES DOUBLONS ***
+### 4. GESTION DES DOUBLONS
 
 - Tous les indices identiques (insensibles à la casse)
   sont éliminés automatiquement.
@@ -73,7 +73,7 @@ Exemple :
 "2 indices ont été éliminés car identiques."
 
 
-*** 5. SYSTEME DE SCORE ***
+### 5. SYSTEME DE SCORE 
 
 Le score est coopératif.
 
@@ -92,7 +92,7 @@ La version Just One Express ajoute une contrainte de temps
 pour rendre le jeu plus dynamique et plus exigeant.
 
 
-*** 6. PRINCIPE DU MODE EXPRESS ***
+### 6. PRINCIPE DU MODE EXPRESS
 
 - Une durée de manche est choisie au début de la partie
 - Formats acceptés :
@@ -110,7 +110,7 @@ Le temps est partagé entre :
 - la réponse finale du joueur actif
 
 
-*** 7. COMPORTEMENT DU TIMER ***
+### 7. COMPORTEMENT DU TIMER
 
 - Si le temps s’écoule pendant la manche :
   -> la manche est ratée
@@ -118,7 +118,7 @@ Le temps est partagé entre :
 Le jeu continue normalement après la manche (pas d’arrêt brutal).
 
 
-*** 8. PENALITE EXPRESS (DOUBLONS) ***
+### 8. PENALITE EXPRESS (DOUBLONS)
 
 - Si au moins un doublon est détecté sur une manche :
   -> 5 secondes sont retirées à la manche suivante
@@ -127,7 +127,7 @@ Un message est affiché au début de la manche suivante :
 
 "Pénalité : -5 secondes à cause des doublons précédents."
 
-*** 9. LANCER LE JEU ***
+### 9. LANCER LE JEU
 
 Version classique :
 > node justone.js
@@ -136,7 +136,7 @@ Version Express :
 > node justoneexpress.js
 
 
-*** 10. AMELIORATIONS APPORTEES ***
+### 10. AMELIORATIONS APPORTEES
 
 - Implémentation complète en Node.js (CLI)
 - Score dynamique
@@ -145,7 +145,7 @@ Version Express :
 - Un jumelage avec un dictionnaire extérieure est envisagé.
 
 
-*** 11. CONTEXTE ***
+### 11. CONTEXTE
 
 Projet réalisé dans un cadre pédagogique au sein de l'INSA de Lyon au département Télécommunications, Services et Usages en troisième année.
 
